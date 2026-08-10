@@ -1,7 +1,7 @@
 import express from "express";
 import { execFile } from "child_process";
 import path from "path";
-import { existsSync, unlinkSync, readdirSync, chmodSync, createWriteStream } from "fs";
+import { existsSync, unlinkSync, readdirSync, chmodSync, createWriteStream, statSync } from "fs";
 import { pipeline } from "stream/promises";
 import https from "https";
 
@@ -16,9 +16,10 @@ async function downloadYtDlp() {
         console.log("yt-dlp already exists at", YTDLP_BIN);
         return;
     }
-    console.log("Downloading yt-dlp...");
-    const download = (url) => new Promise((resolve, reject) => {
-        https.get(url, (res) => {
+    console.log("Downloading yt-dlp (Linux standalone binary)...");
+    const url = "https://github.com/yt-dlp/yt-dlp/releases/latest/download/yt-dlp";
+    const download = (u) => new Promise((resolve, reject) => {
+        https.get(u, (res) => {
             if (res.statusCode === 302 || res.statusCode === 301) {
                 return download(res.headers.location).then(resolve, reject);
             }
@@ -27,12 +28,12 @@ async function downloadYtDlp() {
             pipeline(res, file).then(resolve, reject);
         }).on("error", reject);
     });
-    await download("https://github.com/yt-dlp/yt-dlp/releases/latest/download/yt-dlp");
+    await download(url);
     chmodSync(YTDLP_BIN, 0o755);
-    console.log("yt-dlp installed.");
+    const size = statSync(YTDLP_BIN).size;
+    console.log(`yt-dlp installed (${(size / 1024 / 1024).toFixed(2)} MB).`);
 }
 
-// Download yt-dlp before starting the server
 downloadYtDlp().then(() => {
     app.get("/", (req, res) => {
         res.json({ name: "yt-downloader", status: "running" });
