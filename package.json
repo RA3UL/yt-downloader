@@ -4,10 +4,10 @@
   "type": "module",
   "main": "server.js",
   "scripts": {
-    "start": "node server.js"
+    "start": "node server.js",
+    "postinstall": "node install-yt-dlp.js"
   },
   "dependencies": {
-    "express": "^4.19.2",
-    "yt-dlp-wrap": "^2.3.5"
+    "express": "^4.19.2"
   }
 }
