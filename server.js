@@ -4,6 +4,7 @@ import path from "path";
 import { existsSync, unlinkSync, readdirSync, chmodSync, createWriteStream, statSync } from "fs";
 import { pipeline } from "stream/promises";
 import https from "https";
+import { execSync } from "child_process";
 
 const app = express();
 app.use(express.json());
@@ -12,9 +13,16 @@ const PORT = process.env.PORT || 8080;
 const YTDLP_BIN = "/usr/local/bin/yt-dlp";
 
 async function downloadYtDlp() {
+    // Check if existing binary works (it might be the Python-dependent one)
     if (existsSync(YTDLP_BIN)) {
-        console.log("yt-dlp already exists at", YTDLP_BIN);
-        return;
+        try {
+            const v = execSync(YTDLP_BIN + " --version", { timeout: 5000 }).toString().trim();
+            console.log("yt-dlp already exists and works:", v);
+            return;
+        } catch (e) {
+            console.log("yt-dlp exists but broken, removing:", e.message);
+            try { unlinkSync(YTDLP_BIN); } catch {}
+        }
     }
     console.log("Downloading yt-dlp (Linux standalone binary)...");
     const url = "https://github.com/yt-dlp/yt-dlp/releases/latest/download/yt-dlp";
