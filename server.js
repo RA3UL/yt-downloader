@@ -1,5 +1,5 @@
 import express from "express";
-import { exec } from "child_process";
+import { execFile } from "child_process";
 import path from "path";
 import { existsSync, unlinkSync } from "fs";
 
@@ -23,27 +23,27 @@ app.post("/api/download", (req, res) => {
     const { url, format = "mp4", quality = "720" } = req.body || {};
     if (!url) return res.status(400).json({ error: "URL required" });
 
-    const outFile = path.join("/tmp", `dl_${Date.now()}.%(ext)s`);
+    const id = Date.now();
+    const outTemplate = `/tmp/dl_${id}.%(ext)s`;
     const args = [
         "--no-playlist",
         "--no-warnings",
         "--no-check-certificate",
-        "-o", outFile,
+        "-o", outTemplate,
         "--extractor-args", "youtube:player_client=android,web",
-        url,
     ];
 
     if (format === "mp3") {
-        args.unshift("-x", "--audio-format", "mp3");
+        args.push("-x", "--audio-format", "mp3");
     } else {
-        args.unshift("-f", `bestvideo[height<=${quality}][ext=mp4]+bestaudio[ext=m4a]/best[height<=${quality}][ext=mp4]/best`);
-        args.unshift("--merge-output-format", "mp4");
+        args.push("-f", `bestvideo[height<=${quality}][ext=mp4]+bestaudio[ext=m4a]/best[height<=${quality}][ext=mp4]/best`);
+        args.push("--merge-output-format", "mp4");
     }
+    args.push(url);
 
-    const cmd = `yt-dlp ${args.join(" ")}`;
-    console.log("Running:", cmd);
+    console.log("Running yt-dlp with", args.length, "args");
 
-    exec(cmd, { timeout: 300000 }, (error, stdout, stderr) => {
+    execFile("yt-dlp", args, { timeout: 300000 }, (error, stdout, stderr) => {
         if (error) {
             console.error("yt-dlp error:", stderr);
             return res.status(500).json({ error: stderr || error.message });
