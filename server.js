@@ -1,34 +1,16 @@
 import express from "express";
 import { execFile } from "child_process";
 import path from "path";
-import { existsSync, unlinkSync, readdirSync, statSync } from "fs";
-import { download } from "yt-dlp-wrap";
+import { existsSync, unlinkSync, readdirSync } from "fs";
 
 const app = express();
 app.use(express.json());
 
 const PORT = process.env.PORT || 9000;
 
-// On first request, ensure yt-dlp binary exists. yt-dlp-wrap will fetch it
-// to /usr/local/bin/yt-dlp or a cached location automatically.
-let ytdlpReady = null;
-async function ensureYtDlp() {
-    if (ytdlpReady) return ytdlpReady;
-    try {
-        // The package exposes a static binary path. Try to invoke it; if missing,
-        // download to the default cache.
-        const YTDLP_BIN = "/usr/local/bin/yt-dlp";
-        if (!existsSync(YTDLP_BIN)) {
-            console.log("yt-dlp not found, downloading...");
-            await download();
-        }
-        ytdlpReady = true;
-        return true;
-    } catch (e) {
-        console.error("Failed to ensure yt-dlp:", e);
-        throw e;
-    }
-}
+// yt-dlp is downloaded by postinstall script (see package.json)
+// It lives at /usr/local/bin/yt-dlp on the deployed container
+const YTDLP_BIN = "/usr/local/bin/yt-dlp";
 
 app.get("/", (req, res) => {
     res.json({
@@ -39,10 +21,8 @@ app.get("/", (req, res) => {
 });
 
 app.post("/api/download", async (req, res) => {
-    try {
-        await ensureYtDlp();
-    } catch (e) {
-        return res.status(500).json({ error: "yt-dlp setup failed: " + e.message });
+    if (!existsSync(YTDLP_BIN)) {
+        return res.status(500).json({ error: "yt-dlp binary not found at " + YTDLP_BIN });
     }
 
     const { url, format = "mp4", quality = "720" } = req.body || {};
@@ -50,7 +30,6 @@ app.post("/api/download", async (req, res) => {
 
     const id = Date.now();
     const outTemplate = `/tmp/dl_${id}.%(ext)s`;
-    const YTDLP_BIN = "/usr/local/bin/yt-dlp";
 
     const args = [
         "--no-playlist",
